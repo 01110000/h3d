@@ -50,4 +50,20 @@ dx serve --android
 dx serve --ios
 ```
 
-Release bundles: `dx bundle --release --platform <windows|linux|macos|android|ios>`.
+## Packages
+
+Pushing a `v*` tag runs `.github/workflows/release.yml`. It builds one-click packages on each platform's
+native runner and attaches them to a GitHub Release (pull requests and manual runs upload them as workflow artifacts):
+
+| Platform | Package |
+| --- | --- |
+| Windows x86_64 | `.msi` installer and `.exe` (NSIS) installer |
+| macOS (Apple silicon / Intel) | `.dmg` |
+| Linux x86_64 | `.AppImage` and `.deb` |
+| Android arm64 | `.apk` (signed with the debug key) |
+| iOS | `.ipa` (unsigned: needs re-signing with an Apple Developer certificate to install on a device) |
+
+The Windows and macOS packages are not code-signed, so SmartScreen and Gatekeeper warn on first launch.
+
+Local equivalent: `dx bundle --release --renderer native --linux --package-types appimage --package-types deb`
+(swap the platform flag and package types; pass `--renderer native`, otherwise desktop targets default to the webview renderer).

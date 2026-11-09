@@ -1,0 +1,117 @@
+name: Packages
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  DX_VERSION: 0.8.0-alpha.3
+
+jobs:
+  bundle:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x86_64
+            os: ubuntu-24.04
+            args: --linux --package-types appimage --package-types deb
+          - name: windows-x86_64
+            os: windows-latest
+            args: --windows --package-types msi --package-types nsis
+          - name: macos-arm64
+            os: macos-latest
+            args: --macos --package-types dmg
+          - name: macos-x86_64
+            os: macos-latest
+            rust_target: x86_64-apple-darwin
+            args: --macos --target x86_64-apple-darwin --package-types dmg
+          - name: ios
+            os: macos-latest
+            rust_target: aarch64-apple-ios
+            args: --ios --package-types ipa
+          - name: android-arm64
+            os: ubuntu-24.04
+            rust_target: aarch64-linux-android
+            args: --android --target aarch64-linux-android --package-types apk
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.name }}
+
+      - name: Install Linux dependencies
+        if: startsWith(matrix.name, 'linux')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libfontconfig1-dev libxkbcommon-dev libwayland-dev libx11-dev libssl-dev libfuse2t64
+
+      - name: Set up Java
+        if: startsWith(matrix.name, 'android')
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android NDK
+        if: startsWith(matrix.name, 'android')
+        shell: bash
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.2.12479018"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+
+      - uses: cargo-bins/cargo-binstall@main
+
+      - name: Install dioxus-cli
+        shell: bash
+        run: cargo binstall -y --force dioxus-cli@${DX_VERSION}
+
+      - name: Bundle
+        shell: bash
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: dx bundle ${{ matrix.args }} --renderer native --release --out-dir dist
+
+      - name: Rename packages
+        shell: bash
+        run: |
+          mkdir -p out
+          for f in dist/*; do
+            [ -f "$f" ] || continue
+            ext="${f##*.}"
+            cp "$f" "out/H3D-${{ matrix.name }}.${ext}"
+          done
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: H3D-${{ matrix.name }}
+          path: out/*
+          if-no-files-found: error
+
+  release:
+    needs: bundle
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: packages
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: packages/*
+          generate_release_notes: true
