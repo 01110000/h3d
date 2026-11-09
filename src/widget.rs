@@ -156,7 +156,7 @@ impl Widget for SplatWidget {
     }
 
     fn requires_redraw(&self) -> bool {
-        self.dirty || !self.pointers.is_empty()
+        self.dirty
     }
 
     fn handle_event(&mut self, event: &UiEvent) {
