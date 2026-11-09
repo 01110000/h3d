@@ -9,6 +9,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   DX_VERSION: 0.8.0-alpha.3
 
@@ -33,10 +37,10 @@ jobs:
             os: macos-latest
             rust_target: x86_64-apple-darwin
             args: --macos --target x86_64-apple-darwin --package-types dmg
+          # dx refuses to make an .ipa from an unsigned app, so the job zips the .app itself.
           - name: ios
             os: macos-latest
             rust_target: aarch64-apple-ios
-            args: --ios --package-types ipa
           - name: android-arm64
             os: ubuntu-24.04
             rust_target: aarch64-linux-android
@@ -80,10 +84,21 @@ jobs:
         run: cargo binstall -y --force dioxus-cli@${DX_VERSION}
 
       - name: Bundle
+        if: matrix.name != 'ios'
         shell: bash
         env:
           APPIMAGE_EXTRACT_AND_RUN: "1"
         run: dx bundle ${{ matrix.args }} --renderer native --release --out-dir dist
+
+      - name: Build unsigned iOS .ipa
+        if: matrix.name == 'ios'
+        shell: bash
+        run: |
+          dx build --ios --renderer native --release --target aarch64-apple-ios
+          app=$(find target/dx/h3d/release/ios -maxdepth 1 -name "*.app" | head -1)
+          mkdir -p dist ipa/Payload
+          cp -R "$app" ipa/Payload/
+          (cd ipa && zip -qry ../dist/H3D-unsigned.ipa Payload)
 
       - name: Rename packages
         shell: bash

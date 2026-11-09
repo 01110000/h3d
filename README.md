@@ -61,7 +61,7 @@ native runner and attaches them to a GitHub Release (pull requests and manual ru
 | macOS (Apple silicon / Intel) | `.dmg` |
 | Linux x86_64 | `.AppImage` and `.deb` |
 | Android arm64 | `.apk` (signed with the debug key) |
-| iOS | `.ipa` (unsigned: needs re-signing with an Apple Developer certificate to install on a device) |
+| iOS | `.ipa` (unsigned, zipped from the `.app` because dx only packages signed apps: re-sign with an Apple Developer certificate to install on a device) |
 
 The Windows and macOS packages are not code-signed, so SmartScreen and Gatekeeper warn on first launch.
 
