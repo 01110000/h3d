@@ -1,0 +1,7 @@
+[application]
+name = "H3D"
+android_main_activity = "android/MainActivity.kt"
+
+[bundle]
+identifier = "com.h3d.app"
+publisher = "H3D"
