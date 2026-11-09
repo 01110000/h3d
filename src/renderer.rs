@@ -178,8 +178,10 @@ impl SplatRenderer {
 
     pub fn render(&mut self, target: &wgpu::Texture, view: Mat4, fov_y: f32) {
         let (w, h) = (target.width() as f32, target.height() as f32);
-        let proj = Mat4::perspective_rh(fov_y, w / h, 0.05, 100.0);
-        let focal = h / (2.0 * (fov_y * 0.5).tan());
+        // `fov_y` applies to the shorter side so the torus also fits portrait screens.
+        let tan_half = (fov_y * 0.5).tan() * (h / w).max(1.0);
+        let proj = Mat4::perspective_rh(2.0 * tan_half.atan(), w / h, 0.05, 100.0);
+        let focal = h / (2.0 * tan_half);
         let uniforms = Uniforms {
             view: view.to_cols_array_2d(),
             proj: proj.to_cols_array_2d(),
